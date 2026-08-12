@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MCC FD Fund Management System</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="crest">MCC</div>
+    <div class="brand-text">
+      <span class="brand-title">Municipal Corporation Chandigarh</span>
+      <span class="brand-sub">Fixed Deposit &amp; Unutilized Fund Management System</span>
+    </div>
+  </div>
+  <div class="session" id="sessionBox" hidden>
+    <span id="whoami"></span>
+    <button class="btn ghost" id="logoutBtn">Log out</button>
+  </div>
+</header>
+
+<main id="app">
+
+  <!-- ===================== LOGIN VIEW ===================== -->
+  <section id="loginView" class="view centered">
+    <form id="loginForm" class="card login-card">
+      <h1>Sign in</h1>
+      <p class="muted">Access for MCC finance officials and empanelled banks.</p>
+      <label>Username
+        <input type="text" id="loginUsername" autocomplete="username" required>
+      </label>
+      <label>Password
+        <input type="password" id="loginPassword" autocomplete="current-password" required>
+      </label>
+      <button class="btn primary" type="submit">Sign in</button>
+      <p class="error" id="loginError"></p>
+    </form>
+  </section>
+
+  <!-- ===================== ADMIN DASHBOARD ===================== -->
+  <section id="adminView" class="view" hidden>
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="fundsTab">Funds</button>
+      <button class="tab-btn" data-tab="newFundTab">New Fund Entry</button>
+      <button class="tab-btn" data-tab="banksTab">Empanelled Banks</button>
+    </nav>
+
+    <div id="fundsTab" class="tab-panel active">
+      <div class="panel-head">
+        <h2>All FD Fund Requirements</h2>
+        <button class="btn small" id="refreshFundsBtn">Refresh</button>
+      </div>
+      <div class="table-wrap">
+        <table id="fundsTable">
+          <thead>
+            <tr>
+              <th>Reference No.</th><th>Title</th><th>Amount (₹)</th><th>Tenure</th>
+              <th>Bid Deadline</th><th>Status</th><th>Quotes</th><th>H1 Rate</th><th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="newFundTab" class="tab-panel">
+      <h2>New FD Fund Entry</h2>
+      <form id="newFundForm" class="card form-grid">
+        <label>Title / Purpose
+          <input type="text" id="fundTitle" placeholder="e.g. Water Supply Cess - Q3 surplus" required>
+        </label>
+        <label>Department / Head of Account
+          <input type="text" id="fundDept" placeholder="e.g. Public Health Wing">
+        </label>
+        <label>Amount Available (₹)
+          <input type="number" id="fundAmount" min="1" step="0.01" required>
+        </label>
+        <label>Tenure (days)
+          <input type="number" id="fundTenure" min="1" step="1" required>
+        </label>
+        <label>Bid Submission Deadline
+          <input type="datetime-local" id="fundDeadline" required>
+        </label>
+        <label class="full">Details / Remarks
+          <textarea id="fundDetails" rows="3" placeholder="Scheme details, source of fund, source of unutilization, applicable conditions, etc."></textarea>
+        </label>
+        <button class="btn primary" type="submit">Publish Fund for Bank Quotations</button>
+        <p class="success" id="newFundMsg"></p>
+      </form>
+    </div>
+
+    <div id="banksTab" class="tab-panel">
+      <div class="panel-head">
+        <h2>Empanelled Banks</h2>
+      </div>
+      <div class="two-col">
+        <div class="table-wrap">
+          <table id="banksTable">
+            <thead><tr><th>Bank Name</th><th>Username</th><th>Status</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <form id="newBankForm" class="card form-grid">
+          <h3>Add Bank Account</h3>
+          <label>Bank Name
+            <input type="text" id="bankName" required>
+          </label>
+          <label>Login Username
+            <input type="text" id="bankUsername" required minlength="4">
+          </label>
+          <label>Temporary Password
+            <input type="text" id="bankPassword" required minlength="8">
+          </label>
+          <button class="btn primary" type="submit">Create Bank Login</button>
+          <p class="success" id="newBankMsg"></p>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== FUND DETAIL / EVALUATION MODAL (admin) ===================== -->
+  <div id="fundModal" class="modal-backdrop" hidden>
+    <div class="modal card">
+      <button class="modal-close" id="closeFundModal">&times;</button>
+      <div id="fundModalContent"></div>
+    </div>
+  </div>
+
+  <!-- ===================== BANK DASHBOARD ===================== -->
+  <section id="bankView" class="view" hidden>
+    <h2>Open Fund Requirements — Submit Your FD Rate Quote</h2>
+    <div class="table-wrap">
+      <table id="bankFundsTable">
+        <thead>
+          <tr><th>Reference No.</th><th>Title</th><th>Amount (₹)</th><th>Tenure</th><th>Bid Deadline</th><th>Status</th><th>Your Quote</th><th>Result</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <div id="quoteModal" class="modal-backdrop" hidden>
+    <div class="modal card">
+      <button class="modal-close" id="closeQuoteModal">&times;</button>
+      <div id="quoteModalContent"></div>
+    </div>
+  </div>
+
+</main>
+
+<footer class="footer">
+  <p>Municipal Corporation Chandigarh &middot; Internal Fund Management Tool. For authorized use only.</p>
+</footer>
+
+<script src="js/app.js"></script>
+</body>
+</html>
