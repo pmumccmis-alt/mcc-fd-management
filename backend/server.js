@@ -8,6 +8,9 @@ const path = require('path');
 const authRoutes = require('./routes/auth');
 const fundRoutes = require('./routes/funds');
 const quoteRoutes = require('./routes/quotes');
+const dashboardRoutes = require('./routes/dashboard');
+const depositRoutes = require('./routes/deposits');
+const { startScheduler } = require('./services/scheduler');
 
 if (!process.env.JWT_SECRET) {
   console.error('FATAL: JWT_SECRET is not set. Copy .env.example to .env and set a strong secret before starting the server.');
@@ -26,6 +29,8 @@ app.use('/api/', rateLimit({ windowMs: 15 * 60 * 1000, max: 300 }));
 app.use('/api/auth', authRoutes);
 app.use('/api/funds', fundRoutes);
 app.use('/api/quotes', quoteRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/deposits', depositRoutes);
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
@@ -46,4 +51,6 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
   console.log(`MCC FD Management System backend running on http://localhost:${PORT}`);
+  startScheduler();
+  console.log('Auto result-declaration scheduler started (checks every 30s for funds past their bid deadline).');
 });
