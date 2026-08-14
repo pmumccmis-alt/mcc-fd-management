@@ -5,12 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MCC FD Fund Management System</title>
 <link rel="stylesheet" href="css/style.css">
+<script src="js/chart.umd.js"></script>
 </head>
 <body>
 
 <header class="topbar">
   <div class="brand">
-    <div class="crest">MCC</div>
+    <div class="crest"><img src="logo.png" alt="MCC Logo"></div>
     <div class="brand-text">
       <span class="brand-title">Municipal Corporation Chandigarh</span>
       <span class="brand-sub">Fixed Deposit &amp; Unutilized Fund Management System</span>
@@ -24,31 +25,121 @@
 
 <main id="app">
 
-  <!-- ===================== LOGIN VIEW ===================== -->
+  <!-- ===================== LOGIN VIEW (STEP 1: credentials) ===================== -->
   <section id="loginView" class="view centered">
     <form id="loginForm" class="card login-card">
       <h1>Sign in</h1>
-      <p class="muted">Access for MCC finance officials and empanelled banks.</p>
+      <p class="muted">Access for MCC Master/Finance officials and empanelled banks.</p>
       <label>Username
         <input type="text" id="loginUsername" autocomplete="username" required>
       </label>
       <label>Password
         <input type="password" id="loginPassword" autocomplete="current-password" required>
       </label>
-      <button class="btn primary" type="submit">Sign in</button>
+      <button class="btn primary" type="submit">Continue</button>
       <p class="error" id="loginError"></p>
     </form>
   </section>
 
-  <!-- ===================== ADMIN DASHBOARD ===================== -->
+  <!-- ===================== LOGIN VIEW (STEP 2: OTP) ===================== -->
+  <section id="otpView" class="view centered" hidden>
+    <form id="otpForm" class="card login-card">
+      <h1>Enter OTP</h1>
+      <p class="muted" id="otpSubtitle">An OTP has been sent to your registered mobile number.</p>
+      <div class="dev-otp-banner" id="devOtpBanner" hidden></div>
+      <label>6-Digit OTP
+        <input type="text" id="otpInput" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required autocomplete="one-time-code">
+      </label>
+      <button class="btn primary" type="submit">Verify &amp; Sign in</button>
+      <button class="btn outline" type="button" id="resendOtpBtn" style="margin-top:8px;">Resend OTP</button>
+      <button class="btn ghost dark" type="button" id="backToLoginBtn" style="margin-top:8px;">&larr; Back</button>
+      <p class="error" id="otpError"></p>
+    </form>
+  </section>
+
+  <!-- ===================== MASTER / ADMIN DASHBOARD ===================== -->
   <section id="adminView" class="view" hidden>
     <nav class="tabs">
-      <button class="tab-btn active" data-tab="fundsTab">Funds</button>
+      <button class="tab-btn active" data-tab="dashboardTab">Dashboard</button>
+      <button class="tab-btn" data-tab="fundsTab">Funds</button>
+      <button class="tab-btn" data-tab="depositsTab">FD Deposits</button>
       <button class="tab-btn" data-tab="newFundTab">New Fund Entry</button>
       <button class="tab-btn" data-tab="banksTab">Empanelled Banks</button>
+      <button class="tab-btn master-only" data-tab="officersTab" hidden>Officers (Master)</button>
     </nav>
 
-    <div id="fundsTab" class="tab-panel active">
+    <!-- ---------- DASHBOARD TAB ---------- -->
+    <div id="dashboardTab" class="tab-panel active">
+      <div class="filter-bar card">
+        <label>From
+          <input type="date" id="filterDateFrom">
+        </label>
+        <label>To
+          <input type="date" id="filterDateTo">
+        </label>
+        <label>Status
+          <select id="filterStatus">
+            <option value="">All</option>
+            <option value="open">Open</option>
+            <option value="result_declared">Result Declared</option>
+            <option value="awarded">Awarded</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </label>
+        <label>Department
+          <select id="filterDepartment"><option value="">All</option></select>
+        </label>
+        <label>Awarded Bank
+          <select id="filterBank"><option value="">All</option></select>
+        </label>
+        <button class="btn primary small" id="applyFiltersBtn">Apply Filters</button>
+        <button class="btn outline small" id="clearFiltersBtn">Clear</button>
+        <button class="btn gold small" id="exportExcelBtn">⬇ Export to Excel</button>
+      </div>
+
+      <div class="kpi-grid" id="kpiGrid"></div>
+
+      <div class="chart-grid">
+        <div class="card chart-card">
+          <h3>Funds by Status</h3>
+          <canvas id="statusChart"></canvas>
+        </div>
+        <div class="card chart-card">
+          <h3>Amount Published by Month (₹)</h3>
+          <canvas id="monthChart"></canvas>
+        </div>
+        <div class="card chart-card">
+          <h3>Amount by Department (₹)</h3>
+          <canvas id="deptChart"></canvas>
+        </div>
+        <div class="card chart-card">
+          <h3>Avg. Awarded Rate by Tenure</h3>
+          <canvas id="tenureChart"></canvas>
+        </div>
+        <div class="card chart-card wide" id="bankChartCard">
+          <h3>Bank Participation (Quotes Submitted &amp; Wins)</h3>
+          <canvas id="bankChart"></canvas>
+        </div>
+      </div>
+
+      <div class="panel-head">
+        <h2>Filtered Funds — Full Award Detail</h2>
+      </div>
+      <div class="table-wrap">
+        <table id="dashboardFundsTable">
+          <thead>
+            <tr>
+              <th>Reference No.</th><th>Title</th><th>Department</th><th>Amount (₹)</th><th>Tenure</th>
+              <th>Bid Deadline</th><th>Status</th><th>H1 / Awarded Bank</th><th>Rate</th><th>Awarded On</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ---------- FUNDS TAB ---------- -->
+    <div id="fundsTab" class="tab-panel">
       <div class="panel-head">
         <h2>All FD Fund Requirements</h2>
         <button class="btn small" id="refreshFundsBtn">Refresh</button>
@@ -58,7 +149,7 @@
           <thead>
             <tr>
               <th>Reference No.</th><th>Title</th><th>Amount (₹)</th><th>Tenure</th>
-              <th>Bid Deadline</th><th>Status</th><th>Quotes</th><th>H1 Rate</th><th></th>
+              <th>Bid Deadline</th><th>Status</th><th>Quotes</th><th>Result / Award</th><th></th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -66,6 +157,49 @@
       </div>
     </div>
 
+    <!-- ---------- FD DEPOSITS TAB ---------- -->
+    <div id="depositsTab" class="tab-panel">
+      <div class="filter-bar card">
+        <label>From
+          <input type="date" id="depFilterDateFrom">
+        </label>
+        <label>To
+          <input type="date" id="depFilterDateTo">
+        </label>
+        <label>Status
+          <select id="depFilterStatus">
+            <option value="">All</option>
+            <option value="pending_deposit">Pending Deposit</option>
+            <option value="active">Active (Deposited)</option>
+            <option value="matured">Matured</option>
+          </select>
+        </label>
+        <label>Bank
+          <select id="depFilterBank"><option value="">All</option></select>
+        </label>
+        <button class="btn primary small" id="depApplyFiltersBtn">Apply Filters</button>
+        <button class="btn outline small" id="depClearFiltersBtn">Clear</button>
+        <button class="btn gold small" id="depExportExcelBtn">⬇ Export to Excel</button>
+      </div>
+
+      <div class="kpi-grid" id="depKpiGrid"></div>
+
+      <div class="panel-head"><h2>FD Deposit &amp; Maturity Tracker</h2></div>
+      <div class="table-wrap">
+        <table id="depositsTable">
+          <thead>
+            <tr>
+              <th>Reference No.</th><th>Title</th><th>Bank</th><th>FD Rate</th><th>Tenure</th>
+              <th>Status</th><th>Amount Deposited (₹)</th><th>Deposit Date</th><th>Maturity Date</th>
+              <th>Maturity Amount (₹)</th><th>Interest Earned (₹)</th><th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ---------- NEW FUND TAB ---------- -->
     <div id="newFundTab" class="tab-panel">
       <h2>New FD Fund Entry</h2>
       <form id="newFundForm" class="card form-grid">
@@ -92,14 +226,13 @@
       </form>
     </div>
 
+    <!-- ---------- BANKS TAB ---------- -->
     <div id="banksTab" class="tab-panel">
-      <div class="panel-head">
-        <h2>Empanelled Banks</h2>
-      </div>
+      <div class="panel-head"><h2>Empanelled Banks</h2></div>
       <div class="two-col">
         <div class="table-wrap">
           <table id="banksTable">
-            <thead><tr><th>Bank Name</th><th>Username</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Bank Name</th><th>Username</th><th>Mobile</th><th>Status</th><th></th></tr></thead>
             <tbody></tbody>
           </table>
         </div>
@@ -111,6 +244,9 @@
           <label>Login Username
             <input type="text" id="bankUsername" required minlength="4">
           </label>
+          <label>Mobile Number (for OTP login)
+            <input type="tel" id="bankMobile" pattern="[6-9][0-9]{9}" maxlength="10" placeholder="10-digit mobile" required>
+          </label>
           <label>Temporary Password
             <input type="text" id="bankPassword" required minlength="8">
           </label>
@@ -119,9 +255,42 @@
         </form>
       </div>
     </div>
+
+    <!-- ---------- OFFICERS TAB (master only) ---------- -->
+    <div id="officersTab" class="tab-panel">
+      <div class="panel-head"><h2>Officer (Admin) Accounts</h2></div>
+      <div class="two-col">
+        <div class="table-wrap">
+          <table id="officersTable">
+            <thead><tr><th>Name</th><th>Officer ID</th><th>Username</th><th>Mobile</th><th>Status</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <form id="newOfficerForm" class="card form-grid">
+          <h3>Add Officer Account</h3>
+          <label>Full Name
+            <input type="text" id="officerFullName" required>
+          </label>
+          <label>Officer ID
+            <input type="text" id="officerId" required placeholder="e.g. MCC-FIN-014">
+          </label>
+          <label>Login Username
+            <input type="text" id="officerUsername" required minlength="4">
+          </label>
+          <label>Mobile Number (for OTP login)
+            <input type="tel" id="officerMobile" pattern="[6-9][0-9]{9}" maxlength="10" placeholder="10-digit mobile" required>
+          </label>
+          <label>Temporary Password
+            <input type="text" id="officerPassword" required minlength="8">
+          </label>
+          <button class="btn primary" type="submit">Create Officer Login</button>
+          <p class="success" id="newOfficerMsg"></p>
+        </form>
+      </div>
+    </div>
   </section>
 
-  <!-- ===================== FUND DETAIL / EVALUATION MODAL (admin) ===================== -->
+  <!-- ===================== FUND DETAIL / EVALUATION MODAL (admin/master) ===================== -->
   <div id="fundModal" class="modal-backdrop" hidden>
     <div class="modal card">
       <button class="modal-close" id="closeFundModal">&times;</button>
@@ -129,16 +298,63 @@
     </div>
   </div>
 
+  <!-- ===================== DEPOSIT / MATURITY MODAL (admin/master) ===================== -->
+  <div id="depositModal" class="modal-backdrop" hidden>
+    <div class="modal card">
+      <button class="modal-close" id="closeDepositModal">&times;</button>
+      <div id="depositModalContent"></div>
+    </div>
+  </div>
+
   <!-- ===================== BANK DASHBOARD ===================== -->
   <section id="bankView" class="view" hidden>
-    <h2>Open Fund Requirements — Submit Your FD Rate Quote</h2>
-    <div class="table-wrap">
-      <table id="bankFundsTable">
-        <thead>
-          <tr><th>Reference No.</th><th>Title</th><th>Amount (₹)</th><th>Tenure</th><th>Bid Deadline</th><th>Status</th><th>Your Quote</th><th>Result</th></tr>
-        </thead>
-        <tbody></tbody>
-      </table>
+    <nav class="tabs">
+      <button class="tab-btn active" data-bank-tab="bankFundsTab">Open Funds</button>
+      <button class="tab-btn" data-bank-tab="bankDashboardTab">My Dashboard</button>
+    </nav>
+
+    <div id="bankFundsTab" class="tab-panel active">
+      <h2>Open Fund Requirements — Submit Your FD Rate Quote</h2>
+      <div class="table-wrap">
+        <table id="bankFundsTable">
+          <thead>
+            <tr><th>Reference No.</th><th>Title</th><th>Amount (₹)</th><th>Tenure</th><th>Bid Deadline</th><th>Status</th><th>Your Quote</th><th>Result</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="bankDashboardTab" class="tab-panel">
+      <div class="filter-bar card">
+        <label>From
+          <input type="date" id="bankFilterDateFrom">
+        </label>
+        <label>To
+          <input type="date" id="bankFilterDateTo">
+        </label>
+        <label>Status
+          <select id="bankFilterStatus">
+            <option value="">All</option>
+            <option value="open">Open</option>
+            <option value="result_declared">Result Declared</option>
+            <option value="awarded">Awarded</option>
+          </select>
+        </label>
+        <button class="btn primary small" id="bankApplyFiltersBtn">Apply Filters</button>
+        <button class="btn outline small" id="bankClearFiltersBtn">Clear</button>
+      </div>
+      <div class="kpi-grid" id="bankKpiGrid"></div>
+      <div class="chart-grid">
+        <div class="card chart-card">
+          <h3>My Funds by Status</h3>
+          <canvas id="bankStatusChart"></canvas>
+        </div>
+        <div class="card chart-card">
+          <h3>My Participation by Month</h3>
+          <canvas id="bankMonthChart"></canvas>
+        </div>
+      </div>
     </div>
   </section>
 

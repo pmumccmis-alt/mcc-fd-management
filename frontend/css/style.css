@@ -1,3 +1,7 @@
+/* Ensure any element with the `hidden` attribute is actually hidden — some browser/extension
+   combinations (and certain reset stylesheets) need this reinforced with !important. */
+[hidden] { display: none !important; }
+
 :root {
   --navy: #14304D;
   --navy-dark: #0D2038;
@@ -46,6 +50,7 @@ body {
   width: 42px; height: 42px;
   border: 2px solid var(--gold-light);
   border-radius: 50%;
+  background: #FFFFFF;
   display: flex; align-items: center; justify-content: center;
   font-family: var(--serif);
   font-weight: 700;
@@ -53,6 +58,12 @@ body {
   letter-spacing: 0.5px;
   color: var(--gold-light);
 }
+.crest img {
+  height: 36px; /* Adjust this value to make it smaller or larger */
+  width: auto;
+  display: block;
+}
+
 .brand-text { display: flex; flex-direction: column; line-height: 1.25; }
 .brand-title { font-family: var(--serif); font-size: 17px; font-weight: 700; letter-spacing: 0.2px; }
 .brand-sub { font-size: 12px; color: #C9D3DE; }
@@ -101,6 +112,15 @@ main#app { flex: 1; padding: 28px; max-width: 1180px; margin: 0 auto; width: 100
 .muted { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
 
 label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 14px; color: var(--ink); }
+label.consent-check {
+  display: flex; align-items: flex-start; gap: 10px;
+  font-weight: 500; font-size: 13px; line-height: 1.4;
+  background: #FFF9EE; border: 1px solid var(--gold-light);
+  border-radius: var(--radius); padding: 12px 14px; margin-top: 4px;
+}
+label.consent-check input[type="checkbox"] {
+  width: 17px; height: 17px; margin-top: 2px; flex-shrink: 0; accent-color: var(--gold);
+}
 label.full { grid-column: 1 / -1; }
 input, textarea, select {
   display: block;
@@ -159,7 +179,7 @@ tbody tr:hover { background: #FAFBFC; }
   font-size: 11.5px; font-weight: 700; letter-spacing: 0.3px; text-transform: uppercase;
 }
 .badge.open { background: var(--success-bg); color: var(--success); }
-.badge.closed { background: #FFF3E0; color: #9A6300; }
+.badge.result_declared { background: #FFF3E0; color: #9A6300; }
 .badge.awarded { background: #E8ECFB; color: #2A3EB1; }
 .badge.cancelled { background: var(--danger-bg); color: var(--danger); }
 
@@ -197,7 +217,62 @@ tbody tr:hover { background: #FAFBFC; }
 /* ---------- Footer ---------- */
 .footer { text-align: center; padding: 16px; color: var(--muted); font-size: 12px; border-top: 1px solid var(--border); }
 
+/* ---------- OTP screen ---------- */
+.btn.ghost.dark { color: var(--navy); border-color: var(--border); background: transparent; }
+.btn.ghost.dark:hover { background: #F2F4F7; }
+.dev-otp-banner {
+  background: #FFF7E6; border: 1px dashed var(--gold);
+  color: #7A5A12; font-size: 13px; padding: 10px 12px;
+  border-radius: var(--radius); margin-bottom: 16px; font-family: var(--mono);
+}
+#otpInput { letter-spacing: 6px; font-size: 20px; text-align: center; font-family: var(--mono); }
+
+/* ---------- Filter bar ---------- */
+.filter-bar {
+  display: flex; flex-wrap: wrap; align-items: end; gap: 14px;
+  margin-bottom: 20px; padding: 18px 22px;
+}
+.filter-bar label { margin-bottom: 0; font-size: 12px; min-width: 130px; }
+.filter-bar input, .filter-bar select { margin-top: 4px; padding: 7px 9px; font-size: 13px; }
+.filter-bar .btn { margin-top: 0; }
+
+/* ---------- KPI cards ---------- */
+.kpi-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px; margin-bottom: 22px;
+}
+.kpi-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 16px 18px; border-top: 3px solid var(--slate);
+  min-width: 0; /* allow the card to shrink below its content's natural width in the grid */
+}
+.kpi-card .kpi-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+.kpi-card .kpi-value {
+  font-family: var(--serif); color: var(--navy); margin-top: 4px; font-weight: 700;
+  font-size: clamp(16px, 1.6vw, 24px);
+  overflow-wrap: break-word;
+  word-break: break-word;
+  line-height: 1.25;
+}
+.kpi-card.gold { border-top-color: var(--gold); }
+.kpi-card.success-accent { border-top-color: var(--success); }
+
+/* ---------- Chart grid ---------- */
+.chart-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; margin-bottom: 26px;
+}
+.chart-card { min-height: 260px; }
+.chart-card h3 { margin: 0 0 12px; font-size: 15px; }
+.chart-card.wide { grid-column: 1 / -1; }
+.chart-card canvas { max-height: 260px; }
+
+@media (max-width: 900px) {
+  .chart-grid { grid-template-columns: 1fr; }
+}
+
 @media (max-width: 720px) {
   .form-grid, .two-col { grid-template-columns: 1fr; }
   .topbar { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .filter-bar { flex-direction: column; align-items: stretch; }
+  .filter-bar label { min-width: 0; }
 }
