@@ -267,27 +267,34 @@ async function loadDepartmentsFilter() {
   try {
     const depts = await api('/funds/meta/departments');
     const sel = document.getElementById('filterDepartment');
+    const previousValue = sel.value; // preserve whatever the user currently has selected
     sel.innerHTML = `<option value="">All</option>` + depts.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
+    if (previousValue && depts.includes(previousValue)) sel.value = previousValue;
   } catch { /* non-critical */ }
 }
 async function loadBanksFilter() {
   try {
     const banks = await api('/auth/banks');
     const sel = document.getElementById('filterBank');
+    const previousValue = sel.value; // preserve whatever the user currently has selected
     sel.innerHTML = `<option value="">All</option>` + banks.map(b => `<option value="${b.id}">${escapeHtml(b.bank_name)}</option>`).join('');
+    if (previousValue && banks.some(b => String(b.id) === previousValue)) sel.value = previousValue;
   } catch { /* non-critical */ }
 }
 
+let appliedFilters = {}; // the filter set actually in effect — updated only when loadDashboard runs
+
 async function loadDashboard() {
-  const q = toQuery(currentFilters());
+  appliedFilters = currentFilters(); // lock in exactly what's applied — Export will use this, not live DOM state
+  const q = toQuery(appliedFilters);
   try {
     const stats = await api('/dashboard/stats' + q);
     renderKpis(stats.kpis);
     renderStatusChart(stats.byStatus);
     renderMonthChart(stats.byMonth);
-    renderDeptChart(stats.byDepartment);
+    renderDeptChart(stats.byDepartment, appliedFilters.department);
     renderTenureChart(stats.byTenure);
-    renderBankChart(stats.byBank);
+    renderBankChart(stats.byBank, appliedFilters.bank_id);
   } catch (err) {
     console.error(err);
   }
@@ -331,7 +338,20 @@ function renderMonthChart(rows) {
     options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
   });
 }
-function renderDeptChart(rows) {
+function renderDeptChart(rows, departmentFilterActive) {
+  const card = document.getElementById('deptChartCard');
+  if (departmentFilterActive) {
+    card.querySelector('.chart-hidden-note')?.remove();
+    card.querySelector('canvas').style.display = 'none';
+    destroyChart('dept');
+    const note = document.createElement('p');
+    note.className = 'muted chart-hidden-note';
+    note.textContent = `Hidden — you've already filtered to a single department ("${departmentFilterActive}"), so a department breakdown isn't meaningful here. Clear the department filter to see it again.`;
+    card.appendChild(note);
+    return;
+  }
+  card.querySelector('.chart-hidden-note')?.remove();
+  card.querySelector('canvas').style.display = '';
   destroyChart('dept');
   const ctx = document.getElementById('deptChart');
   charts.dept = new Chart(ctx, {
@@ -349,10 +369,23 @@ function renderTenureChart(rows) {
     options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
   });
 }
-function renderBankChart(rows) {
+function renderBankChart(rows, bankFilterActive) {
   const card = document.getElementById('bankChartCard');
-  if (!rows || !rows.length) { card.style.display = 'none'; return; }
   card.style.display = '';
+  card.querySelector('.chart-hidden-note')?.remove();
+
+  if (bankFilterActive) {
+    card.querySelector('canvas').style.display = 'none';
+    destroyChart('bank');
+    const note = document.createElement('p');
+    note.className = 'muted chart-hidden-note';
+    note.textContent = `Hidden — you've filtered to a single bank, so this chart's "quotes vs. wins" comparison across banks isn't meaningful here. Clear the bank filter to see it again.`;
+    card.appendChild(note);
+    return;
+  }
+  if (!rows || !rows.length) { card.style.display = 'none'; return; }
+
+  card.querySelector('canvas').style.display = '';
   destroyChart('bank');
   const ctx = document.getElementById('bankChart');
   charts.bank = new Chart(ctx, {
@@ -406,13 +439,19 @@ async function onExportExcel() {
   const original = btn.textContent;
   btn.textContent = 'Exporting…';
   try {
-    await downloadFile('/funds/export/excel' + toQuery(currentFilters()));
+    const activeFilterCount = Object.values(appliedFilters).filter(Boolean).length;
+    await downloadFile('/funds/export/excel' + toQuery(appliedFilters));
+    btn.textContent = activeFilterCount
+      ? `✓ Exported (${activeFilterCount} filter${activeFilterCount > 1 ? 's' : ''} applied)`
+      : '✓ Exported (all records)';
+    setTimeout(() => { btn.textContent = original; }, 2500);
+    return;
   } catch (err) {
     alert(err.message);
   } finally {
     btn.disabled = false;
-    btn.textContent = original;
   }
+  btn.textContent = original;
 }
 
 /* =========================================================
@@ -521,7 +560,11 @@ function renderFundModal(fund, quotes, quotesSealedMessage) {
     actionsHtml = `${fund.result_bank_name ? `<button class="btn gold" id="awardH1Btn">Award to H1 (${escapeHtml(fund.result_bank_name)} @ ${fund.result_rate}%)</button>` : '<p class="muted">No quotes were received — nothing to award.</p>'}
                     <button class="btn danger" id="cancelFundBtn">Cancel Fund</button>`;
   } else if (fund.status === 'awarded') {
-    actionsHtml = `<p class="success">Awarded to <strong>${escapeHtml(fund.awarded_bank_name)}</strong> at <strong>${fund.awarded_rate}%</strong> on ${formatDate(fund.awarded_at)}.</p>`;
+    const awardedQuote = sorted.find(q => q.bank_name === fund.awarded_bank_name && Number(q.interest_rate) === Number(fund.awarded_rate));
+    const integrityWarning = (!quotesSealedMessage && sorted.length && !awardedQuote)
+      ? `<p class="error" style="width:100%;">⚠ Data integrity warning: this award (${escapeHtml(fund.awarded_bank_name || '')} at ${fund.awarded_rate}%) does not match any submitted quote shown above. This should never happen through normal use of the app — it indicates the record was altered outside the award workflow. Please verify this fund manually.</p>`
+      : '';
+    actionsHtml = `<p class="success">Awarded to <strong>${escapeHtml(fund.awarded_bank_name)}</strong> at <strong>${fund.awarded_rate}%</strong> on ${formatDate(fund.awarded_at)}.</p>${integrityWarning}`;
   } else {
     actionsHtml = `<p class="muted">This fund entry was cancelled.</p>`;
   }
@@ -839,7 +882,9 @@ async function loadDepositsBankFilter() {
   try {
     const banks = await api('/auth/banks');
     const sel = document.getElementById('depFilterBank');
+    const previousValue = sel.value;
     sel.innerHTML = `<option value="">All</option>` + banks.map(b => `<option value="${b.id}">${escapeHtml(b.bank_name)}</option>`).join('');
+    if (previousValue && banks.some(b => String(b.id) === previousValue)) sel.value = previousValue;
   } catch { /* non-critical */ }
 }
 
@@ -931,19 +976,19 @@ function openDepositRecordModal(fundId, row) {
     <dl class="kv">
       <dt>Reference No.</dt><dd class="mono">${escapeHtml(row.reference_no)}</dd>
       <dt>Bank</dt><dd>${escapeHtml(row.bank_name)}</dd>
-      <dt>FD Rate</dt><dd class="mono">${row.fd_rate}%</dd>
-      <dt>Tenure</dt><dd>${tenureLabel(row.tenure_days)}</dd>
-      <dt>Awarded Amount</dt><dd class="mono">${formatMoney(row.awarded_amount)}</dd>
+      <dt>FD Rate</dt><dd class="mono">${row.fd_rate}% <span class="muted">(fixed at award)</span></dd>
+      <dt>Tenure</dt><dd>${tenureLabel(row.tenure_days)} <span class="muted">(fixed at award)</span></dd>
+      <dt>Amount to Deposit</dt><dd class="mono">${formatMoney(row.awarded_amount)} <span class="muted">(fixed — the awarded fund amount)</span></dd>
     </dl>
+    <p class="muted" style="background:#F0F4F8; border:1px solid var(--border); border-radius:6px; padding:10px 12px;">
+      Rate, tenure, and amount were all fixed when this fund was awarded and cannot be edited here — this prevents any mismatch between the award and the actual deposit. Only the deposit date is entered below.
+    </p>
     <form id="depositForm">
-      <label>Actual Amount Deposited (₹)
-        <input type="number" id="depAmount" min="1" step="0.01" value="${row.awarded_amount}" required>
-      </label>
       <label>Deposit Date
         <input type="date" id="depDate" value="${today}" required>
       </label>
       <p class="muted">Maturity date will be calculated automatically as deposit date + ${row.tenure_days} days.</p>
-      <button class="btn primary" type="submit">Confirm Deposit</button>
+      <button class="btn primary" type="submit">Confirm Deposit of ${formatMoney(row.awarded_amount)}</button>
       <p class="success" id="depositFormMsg"></p>
     </form>
   `;
@@ -953,7 +998,6 @@ function openDepositRecordModal(fundId, row) {
     msg.className = 'success';
     try {
       const payload = {
-        deposit_amount: parseFloat(document.getElementById('depAmount').value),
         deposit_date: new Date(document.getElementById('depDate').value).toISOString()
       };
       const res = await api(`/deposits/${fundId}/deposit`, { method: 'POST', body: JSON.stringify(payload) });
@@ -970,6 +1014,12 @@ function openMaturityRecordModal(fundId, row) {
   const modal = document.getElementById('depositModal');
   const content = document.getElementById('depositModalContent');
   const today = new Date().toISOString().slice(0, 10);
+
+  // Reference calculation only (simple interest) — actual bank-credited amount can legitimately
+  // differ slightly (compounding method, TDS, etc.), so this pre-fills the field as a sanity
+  // check rather than being enforced outright like the deposit amount is.
+  const expectedMaturity = row.deposit_amount * (1 + (row.fd_rate / 100) * (row.tenure_days / 365));
+
   content.innerHTML = `
     <h3>Record FD Maturity</h3>
     <dl class="kv">
@@ -979,11 +1029,13 @@ function openMaturityRecordModal(fundId, row) {
       <dt>Amount Deposited</dt><dd class="mono">${formatMoney(row.deposit_amount)}</dd>
       <dt>Deposit Date</dt><dd>${formatDate(row.deposit_date)}</dd>
       <dt>Maturity Date</dt><dd>${formatDate(row.maturity_date)}</dd>
+      <dt>Expected Amount</dt><dd class="mono">${formatMoney(expectedMaturity)} <span class="muted">(calculated, simple interest — for reference)</span></dd>
     </dl>
     <form id="maturityForm">
       <label>Actual Amount Received at Maturity (₹)
-        <input type="number" id="matAmount" min="1" step="0.01" required>
+        <input type="number" id="matAmount" min="1" step="0.01" value="${expectedMaturity.toFixed(2)}" required>
       </label>
+      <p class="muted" id="matDiffNote"></p>
       <label>Date Received
         <input type="date" id="matDate" value="${today}" required>
       </label>
@@ -991,13 +1043,32 @@ function openMaturityRecordModal(fundId, row) {
       <p class="success" id="maturityFormMsg"></p>
     </form>
   `;
+
+  const matAmountInput = document.getElementById('matAmount');
+  const diffNote = document.getElementById('matDiffNote');
+  const updateDiffNote = () => {
+    const entered = parseFloat(matAmountInput.value);
+    if (isNaN(entered)) { diffNote.textContent = ''; return; }
+    const diff = entered - expectedMaturity;
+    const pct = (diff / expectedMaturity) * 100;
+    if (Math.abs(pct) < 0.5) {
+      diffNote.className = 'muted';
+      diffNote.textContent = 'Matches the expected calculated amount.';
+    } else {
+      diffNote.className = 'error';
+      diffNote.textContent = `⚠ ${diff > 0 ? '+' : ''}${formatMoney(diff)} (${pct.toFixed(2)}%) different from the calculated expected amount — double-check this figure against the bank's actual credit before confirming.`;
+    }
+  };
+  matAmountInput.addEventListener('input', updateDiffNote);
+  updateDiffNote();
+
   document.getElementById('maturityForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const msg = document.getElementById('maturityFormMsg');
     msg.className = 'success';
     try {
       const payload = {
-        maturity_amount: parseFloat(document.getElementById('matAmount').value),
+        maturity_amount: parseFloat(matAmountInput.value),
         maturity_received_date: new Date(document.getElementById('matDate').value).toISOString()
       };
       const res = await api(`/deposits/${fundId}/mature`, { method: 'POST', body: JSON.stringify(payload) });

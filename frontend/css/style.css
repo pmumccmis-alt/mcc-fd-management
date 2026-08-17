@@ -50,7 +50,6 @@ body {
   width: 42px; height: 42px;
   border: 2px solid var(--gold-light);
   border-radius: 50%;
-  background: #FFFFFF;
   display: flex; align-items: center; justify-content: center;
   font-family: var(--serif);
   font-weight: 700;
@@ -58,12 +57,6 @@ body {
   letter-spacing: 0.5px;
   color: var(--gold-light);
 }
-.crest img {
-  height: 36px; /* Adjust this value to make it smaller or larger */
-  width: auto;
-  display: block;
-}
-
 .brand-text { display: flex; flex-direction: column; line-height: 1.25; }
 .brand-title { font-family: var(--serif); font-size: 17px; font-weight: 700; letter-spacing: 0.2px; }
 .brand-sub { font-size: 12px; color: #C9D3DE; }
@@ -238,7 +231,7 @@ tbody tr:hover { background: #FAFBFC; }
 
 /* ---------- KPI cards ---------- */
 .kpi-grid {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 14px; margin-bottom: 22px;
 }
 .kpi-card {
