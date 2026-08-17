@@ -81,11 +81,12 @@ CREATE TABLE IF NOT EXISTS fd_deposits (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   fund_id INTEGER UNIQUE NOT NULL,      -- one deposit record per awarded fund
   bank_id INTEGER NOT NULL,             -- snapshot of the awarded bank
-  fd_rate REAL NOT NULL,                -- snapshot of the awarded rate
-  tenure_days INTEGER NOT NULL,         -- snapshot of the tenure
+  fd_rate REAL NOT NULL,                -- snapshot of the awarded rate (fixed, cannot change)
+  tenure_days INTEGER NOT NULL,         -- snapshot of the tenure (fixed, cannot change)
   deposit_amount REAL,                  -- actual amount handed to the bank (set when marked deposited)
   deposit_date TEXT,                    -- date the money was actually deposited
   maturity_date TEXT,                   -- computed as deposit_date + tenure_days once deposited
+  expected_maturity_amount REAL,        -- auto-calculated from deposit_amount x fd_rate x tenure_days (simple interest) — always recalculated to match whatever deposit_amount was actually entered, even if it differs from the originally awarded amount
   maturity_amount REAL,                 -- actual amount received back at maturity (set when recorded)
   maturity_received_date TEXT,          -- date the matured amount was actually received
   status TEXT NOT NULL DEFAULT 'pending_deposit' CHECK(status IN ('pending_deposit','active','matured')),

@@ -122,10 +122,13 @@ router.get('/export/excel', authenticate, requireRole('master', 'admin'), (req, 
 });
 
 // ---------- MARK AS DEPOSITED (master/admin) ----------
+// The rate and tenure were fixed at award time, and so is the amount — it's the fund's
+// awarded amount, not a free-text field. The client isn't trusted to supply this: whatever
+// amount is sent in the request body is IGNORED, and the real fund amount is used instead,
+// so a mismatched or mistyped figure can never get recorded as the deposit amount.
 router.post('/:fundId/deposit',
   authenticate,
   requireRole('master', 'admin'),
-  body('deposit_amount').isFloat({ gt: 0 }).withMessage('Deposit amount must be a positive number.'),
   body('deposit_date').isISO8601().withMessage('A valid deposit date is required.'),
   (req, res) => {
     const errors = validationResult(req);
@@ -135,7 +138,9 @@ router.post('/:fundId/deposit',
     if (!deposit) return res.status(404).json({ error: 'This fund has not been awarded yet — nothing to deposit.' });
     if (deposit.status !== 'pending_deposit') return res.status(400).json({ error: `This deposit is already marked as ${deposit.status}.` });
 
-    const { deposit_amount, deposit_date } = req.body;
+    const fund = db.prepare('SELECT * FROM funds WHERE id = ?').get(deposit.fund_id);
+    const deposit_amount = fund.amount; // authoritative — the awarded fund amount, never client-supplied
+    const { deposit_date } = req.body;
     const maturity_date = addDays(deposit_date, deposit.tenure_days);
 
     db.prepare(`
@@ -144,11 +149,10 @@ router.post('/:fundId/deposit',
       WHERE id = ?
     `).run(deposit_amount, deposit_date, maturity_date, req.user.id, deposit.id);
 
-    const fund = db.prepare('SELECT reference_no FROM funds WHERE id = ?').get(deposit.fund_id);
     db.prepare('INSERT INTO audit_log (user_id, action, details) VALUES (?, ?, ?)')
-      .run(req.user.id, 'FD_DEPOSITED', `Recorded deposit of Rs. ${deposit_amount} for fund ${fund.reference_no}; matures ${maturity_date.slice(0, 10)}`);
+      .run(req.user.id, 'FD_DEPOSITED', `Recorded deposit of Rs. ${deposit_amount} (fixed to fund amount) for fund ${fund.reference_no}; matures ${maturity_date.slice(0, 10)}`);
 
-    res.json({ message: 'Deposit recorded. Maturity date calculated automatically.', maturity_date });
+    res.json({ message: 'Deposit recorded. Amount fixed to the awarded fund amount; maturity date calculated automatically.', deposit_amount, maturity_date });
   }
 );
 

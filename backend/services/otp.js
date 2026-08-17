@@ -18,27 +18,37 @@ function hashOtp(otp) {
 /**
  * SMS SENDER — plug in a real provider here for production use.
  * -------------------------------------------------------------
- * This stub just logs the OTP to the server console, so the app is fully testable
- * on a local machine with no SMS account. To go live with real SMS delivery to
- * officers' and banks' mobile numbers, replace the body of sendSms() with a call to
- * your provider's API, e.g. MSG91, Twilio, or your government-approved SMS gateway.
- * Keep the function signature the same so nothing else in the app needs to change.
+ * Each provider builds its own exact message text (not a shared freeform string) because
+ * DLT-registered gateways in India — including Mobile Seva — reject anything that doesn't
+ * exactly match the pre-approved template. Only the OTP digits are passed in; the wording
+ * is decided per-provider.
  */
-async function sendSms(mobileNumber, message) {
-  if (process.env.SMS_PROVIDER === 'none' || !process.env.SMS_PROVIDER) {
-    console.log(`[DEV SMS STUB] To: ${mobileNumber} | Message: ${message}`);
-    return { delivered: false, dev: true };
+async function sendSms(mobileNumber, otp) {
+  const provider = process.env.SMS_PROVIDER;
+
+  if (provider === 'mobileseva') {
+    const { sendOtpViaMobileSeva } = require('./mobileSevaSms');
+    const result = await sendOtpViaMobileSeva(mobileNumber, otp);
+    return { delivered: result.delivered };
   }
-  // Example wiring point for a real provider (uncomment and adapt):
+
+  // Example wiring point for another provider (uncomment and adapt):
   //
-  // if (process.env.SMS_PROVIDER === 'msg91') {
+  // if (provider === 'msg91') {
   //   const axios = require('axios');
   //   await axios.post('https://api.msg91.com/api/v5/otp', {
-  //     mobile: mobileNumber, message, authkey: process.env.MSG91_AUTH_KEY
+  //     mobile: mobileNumber, otp, authkey: process.env.MSG91_AUTH_KEY
   //   });
   //   return { delivered: true };
   // }
-  console.log(`[SMS PROVIDER "${process.env.SMS_PROVIDER}" NOT WIRED UP] To: ${mobileNumber} | Message: ${message}`);
+
+  if (!provider || provider === 'none') {
+    const message = `Dear Citizen, Your mChandigarh Application Login OTP is ${otp}. Chandigarh Smart City Ltd.`;
+    console.log(`[DEV SMS STUB] To: ${mobileNumber} | Message: ${message}`);
+    return { delivered: false, dev: true };
+  }
+
+  console.log(`[SMS PROVIDER "${provider}" NOT WIRED UP] To: ${mobileNumber} | OTP: ${otp}`);
   return { delivered: false };
 }
 
@@ -52,8 +62,7 @@ async function issueOtp(userId, mobileNumber, purpose = 'login') {
     VALUES (?, ?, ?, ?)
   `).run(userId, hashOtp(otp), purpose, expiresAt);
 
-  const message = `${otp} is your OTP for MCC FD Fund Management System. Valid for ${OTP_TTL_MINUTES} minutes. Do not share this with anyone.`;
-  const smsResult = await sendSms(mobileNumber, message);
+  const smsResult = await sendSms(mobileNumber, otp);
 
   const devMode = process.env.OTP_DEV_MODE === 'true';
   return {
