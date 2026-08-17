@@ -5,12 +5,12 @@ const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
 
-const authRoutes = require('./routes/auth');
-const fundRoutes = require('./routes/funds');
-const quoteRoutes = require('./routes/quotes');
-const dashboardRoutes = require('./routes/dashboard');
-const depositRoutes = require('./routes/deposits');
-const { startScheduler } = require('./services/scheduler');
+const authRoutes = require('./backend/routes/auth');
+const fundRoutes = require('./backend/routes/funds');
+const quoteRoutes = require('./backend/routes/quotes');
+const dashboardRoutes = require('./backend/routes/dashboard');
+const depositRoutes = require('./backend/routes/deposits');
+const { startScheduler } = require('./backend/services/scheduler');
 
 if (!process.env.JWT_SECRET) {
   console.error('FATAL: JWT_SECRET is not set. Copy .env.example to .env and set a strong secret before starting the server.');
